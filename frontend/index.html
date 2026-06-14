@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flood Risk Prediction — Sri Lanka</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #0a0e1a;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+
+        header {
+            background: linear-gradient(135deg, #1a237e, #0d47a1);
+            padding: 20px 40px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            color: white;
+        }
+
+        header p {
+            font-size: 0.85rem;
+            color: #90caf9;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        .card {
+            background: #111827;
+            border-radius: 12px;
+            padding: 25px;
+            border: 1px solid #1f2937;
+        }
+
+        .card h2 {
+            font-size: 1rem;
+            color: #60a5fa;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.8rem;
+            color: #9ca3af;
+            margin-bottom: 5px;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 8px 12px;
+            background: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 6px;
+            color: #e0e0e0;
+            font-size: 0.9rem;
+        }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #1d4ed8, #1e40af);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: opacity 0.2s;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .result-card {
+            background: #111827;
+            border-radius: 12px;
+            padding: 25px;
+            border: 1px solid #1f2937;
+            text-align: center;
+        }
+
+        .score-display {
+            font-size: 4rem;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+
+        .risk-badge {
+            display: inline-block;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 1rem;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        .low {
+            background: #14532d;
+            color: #4ade80;
+        }
+
+        .moderate {
+            background: #713f12;
+            color: #fbbf24;
+        }
+
+        .high {
+            background: #7c2d12;
+            color: #fb923c;
+        }
+
+        .very-high {
+            background: #450a0a;
+            color: #f87171;
+        }
+
+        .meter {
+            width: 100%;
+            height: 12px;
+            background: #1f2937;
+            border-radius: 6px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+
+        .meter-fill {
+            height: 100%;
+            border-radius: 6px;
+            transition: width 0.8s ease;
+        }
+
+        .details-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 20px;
+            text-align: left;
+        }
+
+        .detail-item {
+            background: #1f2937;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .detail-item .label {
+            font-size: 0.75rem;
+            color: #6b7280;
+        }
+
+        .detail-item .value {
+            font-size: 0.95rem;
+            color: #e0e0e0;
+            margin-top: 3px;
+        }
+
+        .placeholder {
+            text-align: center;
+            padding: 60px 20px;
+            color: #4b5563;
+        }
+
+        .placeholder .icon {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+            color: #6b7280;
+        }
+
+        .error {
+            color: #f87171;
+            background: #450a0a;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .api-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            color: #6b7280;
+            margin-bottom: 20px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4ade80;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <div>
+            <h1>🌊 Flood Risk Prediction System</h1>
+            <p>ML-powered flood risk assessment for Sri Lanka — ML Opsidian Genesis</p>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="grid">
+            <!-- Input Form -->
+            <div class="card">
+                <div class="api-status">
+                    <div class="status-dot"></div>
+                    API Connected — http://127.0.0.1:8000
+                </div>
+                <h2>📍 Location & Environmental Data</h2>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>District</label>
+                        <select id="district">
+                            <option>Colombo</option>
+                            <option>Gampaha</option>
+                            <option>Kalutara</option>
+                            <option>Kandy</option>
+                            <option>Matale</option>
+                            <option>Nuwara Eliya</option>
+                            <option>Galle</option>
+                            <option>Matara</option>
+                            <option>Hambantota</option>
+                            <option>Jaffna</option>
+                            <option>Kilinochchi</option>
+                            <option>Mannar</option>
+                            <option>Vavuniya</option>
+                            <option>Mullaitivu</option>
+                            <option>Batticaloa</option>
+                            <option>Ampara</option>
+                            <option>Trincomalee</option>
+                            <option>Kurunegala</option>
+                            <option>Puttalam</option>
+                            <option>Anuradhapura</option>
+                            <option>Polonnaruwa</option>
+                            <option>Badulla</option>
+                            <option>Monaragala</option>
+                            <option>Ratnapura</option>
+                            <option>Kegalle</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Urban/Rural</label>
+                        <select id="urban_rural">
+                            <option>Urban</option>
+                            <option>Rural</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Elevation (m)</label>
+                        <input type="number" id="elevation_m" value="10" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>Distance to River (m)</label>
+                        <input type="number" id="distance_to_river_m" value="300" step="1">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Rainfall 7 Days (mm)</label>
+                        <input type="number" id="rainfall_7d_mm" value="120" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>Monthly Rainfall (mm)</label>
+                        <input type="number" id="monthly_rainfall_mm" value="300" step="0.1">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>NDWI</label>
+                        <input type="number" id="ndwi" value="0.5" step="0.01" min="-1" max="1">
+                    </div>
+                    <div class="form-group">
+                        <label>NDVI</label>
+                        <input type="number" id="ndvi" value="0.2" step="0.01" min="-1" max="1">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Drainage Index</label>
+                        <input type="number" id="drainage_index" value="0.4" step="0.01" min="0" max="1">
+                    </div>
+                    <div class="form-group">
+                        <label>Extreme Weather Index</label>
+                        <input type="number" id="extreme_weather_index" value="0.8" step="0.01" min="0" max="1">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Landcover</label>
+                        <select id="landcover">
+                            <option>Urban</option>
+                            <option>Forest</option>
+                            <option>Agriculture</option>
+                            <option>Plantation</option>
+                            <option>Scrub</option>
+                            <option>Water</option>
+                            <option>Bare</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Soil Type</label>
+                        <select id="soil_type">
+                            <option>Clay</option>
+                            <option>Sandy</option>
+                            <option>Loamy</option>
+                            <option>Peaty</option>
+                            <option>Silty</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Population Density (/km²)</label>
+                        <input type="number" id="population_density_per_km2" value="3500" step="1">
+                    </div>
+                    <div class="form-group">
+                        <label>Inundation Area (m²)</label>
+                        <input type="number" id="inundation_area_sqm" value="5000" step="1">
+                    </div>
+                </div>
+
+                <button onclick="predict()" id="predict-btn">🔍 Predict Flood Risk</button>
+                <div class="error" id="error-msg"></div>
+            </div>
+
+            <!-- Result Panel -->
+            <div>
+                <div class="result-card">
+                    <div id="placeholder" class="placeholder">
+                        <div class="icon">🌊</div>
+                        <p>Enter location data and click<br><strong>Predict Flood Risk</strong></p>
+                    </div>
+                    <div id="loading" class="loading">
+                        <p>⏳ Analyzing flood risk...</p>
+                    </div>
+                    <div id="result" style="display:none">
+                        <p style="color:#6b7280; font-size:0.85rem;">FLOOD RISK SCORE</p>
+                        <div class="score-display" id="score-text">—</div>
+                        <div class="meter">
+                            <div class="meter-fill" id="meter-fill" style="width:0%"></div>
+                        </div>
+                        <div class="risk-badge" id="risk-badge">—</div>
+                        <div class="details-grid">
+                            <div class="detail-item">
+                                <div class="label">District</div>
+                                <div class="value" id="res-district">—</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="label">Assessment Time</div>
+                                <div class="value" id="res-time">—</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="label">Elevation</div>
+                                <div class="value" id="res-elevation">—</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="label">Distance to River</div>
+                                <div class="value" id="res-river">—</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API = 'http://127.0.0.1:8000';
+
+        async function predict() {
+            const btn = document.getElementById('predict-btn');
+            const errorMsg = document.getElementById('error-msg');
+            btn.disabled = true;
+            btn.textContent = '⏳ Predicting...';
+            errorMsg.style.display = 'none';
+            document.getElementById('placeholder').style.display = 'none';
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('result').style.display = 'none';
+
+            const payload = {
+                district: document.getElementById('district').value,
+                latitude: 7.8731,
+                longitude: 80.7718,
+                elevation_m: parseFloat(document.getElementById('elevation_m').value),
+                distance_to_river_m: parseFloat(document.getElementById('distance_to_river_m').value),
+                landcover: document.getElementById('landcover').value,
+                soil_type: document.getElementById('soil_type').value,
+                water_supply: 'Municipal',
+                electricity: 'Grid',
+                road_quality: 'Good (paved)',
+                population_density_per_km2: parseFloat(document.getElementById('population_density_per_km2').value),
+                built_up_percent: 60.0,
+                urban_rural: document.getElementById('urban_rural').value,
+                rainfall_7d_mm: parseFloat(document.getElementById('rainfall_7d_mm').value),
+                monthly_rainfall_mm: parseFloat(document.getElementById('monthly_rainfall_mm').value),
+                drainage_index: parseFloat(document.getElementById('drainage_index').value),
+                ndvi: parseFloat(document.getElementById('ndvi').value),
+                ndwi: parseFloat(document.getElementById('ndwi').value),
+                water_presence_flag: 'Likely',
+                historical_flood_count: 2.0,
+                infrastructure_score: 0.6,
+                nearest_hospital_km: 3.0,
+                nearest_evac_km: 2.0,
+                inundation_area_sqm: parseFloat(document.getElementById('inundation_area_sqm').value),
+                seasonal_index: 0.6,
+                terrain_roughness_index: 0.4,
+                socioeconomic_status_index: 0.5,
+                extreme_weather_index: parseFloat(document.getElementById('extreme_weather_index').value)
+            };
+
+            try {
+                const res = await fetch(`${API}/predict`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+
+                if (!res.ok) throw new Error(data.detail || 'Prediction failed');
+
+                showResult(data, payload);
+            } catch (err) {
+                errorMsg.style.display = 'block';
+                errorMsg.textContent = '❌ Error: ' + err.message;
+                document.getElementById('placeholder').style.display = 'block';
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+                btn.disabled = false;
+                btn.textContent = '🔍 Predict Flood Risk';
+            }
+        }
+
+        function showResult(data, payload) {
+            const score = data.flood_risk_score;
+            const colorMap = { green: '#4ade80', yellow: '#fbbf24', orange: '#fb923c', red: '#f87171' };
+            const classMap = { green: 'low', yellow: 'moderate', orange: 'high', red: 'very-high' };
+            const color = colorMap[data.risk_color] || '#fb923c';
+            const cls = classMap[data.risk_color] || 'high';
+
+            document.getElementById('score-text').textContent = (score * 100).toFixed(1) + '%';
+            document.getElementById('score-text').style.color = color;
+            document.getElementById('meter-fill').style.width = (score * 100) + '%';
+            document.getElementById('meter-fill').style.background = color;
+
+            const badge = document.getElementById('risk-badge');
+            badge.textContent = data.risk_level;
+            badge.className = 'risk-badge ' + cls;
+
+            document.getElementById('res-district').textContent = payload.district;
+            document.getElementById('res-time').textContent = new Date(data.timestamp).toLocaleTimeString();
+            document.getElementById('res-elevation').textContent = payload.elevation_m + ' m';
+            document.getElementById('res-river').textContent = payload.distance_to_river_m + ' m';
+
+            document.getElementById('result').style.display = 'block';
+        }
+    </script>
+</body>
+
+</html>

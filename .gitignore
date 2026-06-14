@@ -7,3 +7,6 @@ __pycache__/
 .env
 venv/
 *.egg-info/
+catboost_info/
+mlruns/
+data/*.csv
