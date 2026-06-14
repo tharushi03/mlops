@@ -1,6 +1,4 @@
 data/*.csv
-models/*.pkl
-models/*.cbm
 mlflow/mlruns/
 __pycache__/
 *.pyc
