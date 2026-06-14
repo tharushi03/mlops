@@ -1,0 +1,47 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+    - name: Test imports
+      run: |
+        python -c "from src.preprocess import preprocess; print('✅ preprocess OK')"
+        python -c "from src.monitor import get_summary_stats; print('✅ monitor OK')"
+        python -c "from api.main import app; print('✅ API OK')"
+
+    - name: Test API health
+      run: |
+        python -m uvicorn api.main:app --host 0.0.0.0 --port 8000 &
+        sleep 5
+        curl -f http://localhost:8000/health || exit 1
+        echo "✅ Health check passed"
+
+  deploy-notification:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+    - name: Notify deployment
+      run: |
+        echo "✅ Tests passed — Render will auto-deploy from main branch"
+        echo "🌐 Live URL: https://flood-risk-api-y2pz.onrender.com"
