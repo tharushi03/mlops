@@ -170,3 +170,15 @@ def model_info():
         "cv_folds"       : 5,
         "target"         : "flood_risk_score (0-1)"
     }
+
+from src.monitor import get_summary_stats, check_data_drift
+
+@app.get("/monitoring/stats")
+def monitoring_stats():
+    """Get prediction statistics for monitoring dashboard."""
+    return get_summary_stats()
+
+@app.post("/monitoring/drift")
+def drift_check(input_data: FloodRiskInput):
+    """Check if input data is outside expected ranges."""
+    return check_data_drift(input_data.model_dump())
