@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sri Lanka Flood Risk Map</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+        :root {
+            --bg: #080c14;
+            --surface: #0f1623;
+            --border: #1a2235;
+            --low: #22c55e;
+            --moderate: #eab308;
+            --high: #f97316;
+            --veryhigh: #ef4444;
+            --text: #e2e8f0;
+            --muted: #64748b;
+            --accent: #3b82f6;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        header {
+            background: linear-gradient(135deg, #0f1e3d, #0a1628);
+            border-bottom: 1px solid var(--border);
+            padding: 14px 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        header h1 {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        header p {
+            font-size: 0.72rem;
+            color: var(--muted);
+            margin-top: 2px;
+        }
+
+        .live-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #0f2a1a;
+            border: 1px solid #166534;
+            border-radius: 20px;
+            padding: 4px 12px;
+            font-size: 0.72rem;
+            color: var(--low);
+        }
+
+        .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--low);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: .4
+            }
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            height: calc(100vh - 56px);
+        }
+
+        /* MAP */
+        .map-panel {
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #map-svg {
+            width: 100%;
+            max-width: 420px;
+            height: auto;
+        }
+
+        .district {
+            stroke: #0f1623;
+            stroke-width: 1;
+            cursor: pointer;
+            fill: #1a2235;
+            transition: fill .2s, stroke .2s, filter .2s;
+        }
+
+        .district:hover {
+            filter: brightness(1.5);
+            stroke: #93c5fd;
+            stroke-width: 1.5;
+        }
+
+        .district.active {
+            stroke: white;
+            stroke-width: 2;
+            filter: brightness(1.6);
+        }
+
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(8, 12, 20, .9);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 14px;
+            backdrop-filter: blur(8px);
+        }
+
+        .legend h4 {
+            font-size: .62rem;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: var(--muted);
+            margin-bottom: 8px;
+        }
+
+        .leg {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: .72rem;
+            margin-bottom: 5px;
+        }
+
+        .swatch {
+            width: 11px;
+            height: 11px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+
+        /* tooltip */
+        #tooltip {
+            position: fixed;
+            background: rgba(8, 12, 20, .95);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: .78rem;
+            pointer-events: none;
+            display: none;
+            z-index: 999;
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .sb-section {
+            padding: 16px 18px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .sb-label {
+            font-size: .62rem;
+            text-transform: uppercase;
+            letter-spacing: .1em;
+            color: var(--muted);
+            margin-bottom: 10px;
+        }
+
+        .info-card {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px;
+            min-height: 110px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .d-name {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .d-score {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 2rem;
+            font-weight: 600;
+            line-height: 1;
+            margin: 6px 0 5px;
+        }
+
+        .d-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: .72rem;
+            font-weight: 600;
+        }
+
+        .bar-wrap {
+            margin-top: 10px;
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width .6s ease;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .stat {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 9px 11px;
+        }
+
+        .stat .lbl {
+            font-size: .62rem;
+            color: var(--muted);
+        }
+
+        .stat .val {
+            font-size: 1.05rem;
+            font-weight: 600;
+            margin-top: 2px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .btn {
+            width: calc(100% - 36px);
+            margin: 10px 18px;
+            padding: 10px;
+            background: var(--accent);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: .82rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity .2s;
+            flex-shrink: 0;
+        }
+
+        .btn:hover {
+            opacity: .85;
+        }
+
+        .btn:disabled {
+            opacity: .4;
+            cursor: not-allowed;
+        }
+
+        .d-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px 18px;
+        }
+
+        .d-list::-webkit-scrollbar {
+            width: 3px;
+        }
+
+        .d-list::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 2px;
+        }
+
+        .d-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 7px 9px;
+            border-radius: 7px;
+            cursor: pointer;
+            transition: background .15s;
+            margin-bottom: 2px;
+        }
+
+        .d-item:hover {
+            background: var(--border);
+        }
+
+        .d-item.active {
+            background: #1e3a5f;
+        }
+
+        .d-item-l {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+
+        .d-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .d-n {
+            font-size: .8rem;
+        }
+
+        .d-s {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: .75rem;
+            color: var(--muted);
+        }
+
+        .empty {
+            text-align: center;
+            padding: 24px 14px;
+            color: var(--muted);
+            font-size: .78rem;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <div>
+            <h1>🌊 Sri Lanka Flood Risk Map</h1>
+            <p>District-level ML predictions — ML Opsidian Genesis Final Round</p>
+        </div>
+        <div class="live-badge">
+            <div class="dot"></div>Live API
+        </div>
+    </header>
+
+    <div id="tooltip"></div>
+
+    <div class="layout">
+
+        <!-- MAP PANEL -->
+        <div class="map-panel">
+            <!-- Accurate Sri Lanka SVG with 25 districts -->
+            <svg id="map-svg" viewBox="0 0 500 740" xmlns="http://www.w3.org/2000/svg">
+
+                <!-- NORTHERN PROVINCE -->
+                <polygon id="d-Jaffna" class="district" data-name="Jaffna"
+                    points="180,10 230,8 255,18 260,35 250,52 220,60 190,58 170,45 165,28" />
+                <polygon id="d-Kilinochchi" class="district" data-name="Kilinochchi"
+                    points="220,60 250,52 265,68 260,88 235,95 210,88 205,72" />
+                <polygon id="d-Mannar" class="district" data-name="Mannar"
+                    points="140,55 165,28 170,45 165,75 148,100 125,95 118,72 128,58" />
+                <polygon id="d-Vavuniya" class="district" data-name="Vavuniya"
+                    points="165,75 190,58 210,88 235,95 228,125 200,132 175,125 158,108" />
+                <polygon id="d-Mullaitivu" class="district" data-name="Mullaitivu"
+                    points="235,95 265,88 278,105 272,138 248,148 228,138 228,125" />
+
+                <!-- NORTH CENTRAL -->
+                <polygon id="d-Anuradhapura" class="district" data-name="Anuradhapura"
+                    points="125,110 158,108 175,125 200,132 195,175 162,190 130,178 110,155 112,128" />
+                <polygon id="d-Polonnaruwa" class="district" data-name="Polonnaruwa"
+                    points="200,132 228,125 248,148 252,175 228,190 200,185 195,175" />
+
+                <!-- NORTH WESTERN -->
+                <polygon id="d-Puttalam" class="district" data-name="Puttalam"
+                    points="88,138 112,128 110,155 100,180 82,188 70,165 72,145" />
+                <polygon id="d-Kurunegala" class="district" data-name="Kurunegala"
+                    points="100,180 130,178 162,190 160,222 135,238 105,232 85,212 88,192" />
+
+                <!-- EASTERN -->
+                <polygon id="d-Trincomalee" class="district" data-name="Trincomalee"
+                    points="252,148 278,138 295,158 288,192 265,198 248,185 252,175" />
+                <polygon id="d-Batticaloa" class="district" data-name="Batticaloa"
+                    points="265,198 288,192 300,225 292,262 268,270 248,258 248,230 252,210" />
+                <polygon id="d-Ampara" class="district" data-name="Ampara"
+                    points="268,270 292,262 298,298 278,318 255,310 248,290 252,272" />
+
+                <!-- CENTRAL -->
+                <polygon id="d-Matale" class="district" data-name="Matale"
+                    points="162,190 195,175 200,185 228,190 222,225 195,232 168,222" />
+                <polygon id="d-Kandy" class="district" data-name="Kandy"
+                    points="135,238 160,222 195,232 192,262 168,272 140,262 128,248" />
+                <polygon id="d-NuwaraEliya" class="district" data-name="Nuwara Eliya"
+                    points="192,262 222,255 242,268 238,300 215,312 192,302 185,282" />
+
+                <!-- WESTERN -->
+                <polygon id="d-Gampaha" class="district" data-name="Gampaha"
+                    points="72,212 100,208 105,232 98,255 75,260 62,242 65,222" />
+                <polygon id="d-Colombo" class="district" data-name="Colombo"
+                    points="62,260 78,258 85,280 78,302 60,308 50,288 52,270" />
+                <polygon id="d-Kalutara" class="district" data-name="Kalutara"
+                    points="60,308 80,305 88,330 82,358 62,362 48,342 48,322" />
+
+                <!-- SABARAGAMUWA -->
+                <polygon id="d-Kegalle" class="district" data-name="Kegalle"
+                    points="105,232 135,238 128,262 108,272 88,262 88,242" />
+                <polygon id="d-Ratnapura" class="district" data-name="Ratnapura"
+                    points="108,272 140,262 168,272 165,305 140,318 112,310 95,290" />
+
+                <!-- SOUTHERN -->
+                <polygon id="d-Galle" class="district" data-name="Galle"
+                    points="82,362 112,355 130,368 125,395 100,402 78,388 72,372" />
+                <polygon id="d-Matara" class="district" data-name="Matara"
+                    points="125,395 155,385 175,395 170,422 145,432 118,422 100,408" />
+                <polygon id="d-Hambantota" class="district" data-name="Hambantota"
+                    points="175,395 210,388 242,398 245,428 215,445 178,440 155,425 170,408" />
+
+                <!-- UVA -->
+                <polygon id="d-Badulla" class="district" data-name="Badulla"
+                    points="215,312 238,300 258,312 262,345 238,358 215,348 205,328" />
+                <polygon id="d-Monaragala" class="district" data-name="Monaragala"
+                    points="238,358 262,345 278,355 278,392 252,408 228,398 215,375 215,362" />
+
+            </svg>
+
+            <div class="legend">
+                <h4>Flood Risk Level</h4>
+                <div class="leg">
+                    <div class="swatch" style="background:#22c55e"></div>Low (&lt;0.30)
+                </div>
+                <div class="leg">
+                    <div class="swatch" style="background:#eab308"></div>Moderate (0.30–0.50)
+                </div>
+                <div class="leg">
+                    <div class="swatch" style="background:#f97316"></div>High (0.50–0.70)
+                </div>
+                <div class="leg">
+                    <div class="swatch" style="background:#ef4444"></div>Very High (&gt;0.70)
+                </div>
+                <div class="leg">
+                    <div class="swatch" style="background:#1a2235"></div>Not loaded
+                </div>
+            </div>
+        </div>
+
+        <!-- SIDEBAR -->
+        <div class="sidebar">
+
+            <div class="sb-section">
+                <div class="sb-label">Selected District</div>
+                <div class="info-card" id="info-card">
+                    <div class="empty">
+                        <div style="font-size:1.8rem;margin-bottom:8px">🗺️</div>
+                        Click a district or load all predictions
+                    </div>
+                </div>
+            </div>
+
+            <div class="sb-section">
+                <div class="sb-label">Summary</div>
+                <div class="stats-grid">
+                    <div class="stat">
+                        <div class="lbl">High Risk</div>
+                        <div class="val" id="s-high" style="color:var(--high)">—</div>
+                    </div>
+                    <div class="stat">
+                        <div class="lbl">Avg Score</div>
+                        <div class="val" id="s-avg">—</div>
+                    </div>
+                    <div class="stat">
+                        <div class="lbl">Very High</div>
+                        <div class="val" id="s-vhigh" style="color:var(--veryhigh)">—</div>
+                    </div>
+                    <div class="stat">
+                        <div class="lbl">Low Risk</div>
+                        <div class="val" id="s-low" style="color:var(--low)">—</div>
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn" id="load-btn" onclick="loadAll()">🔄 Load All District Predictions</button>
+
+            <div class="d-list" id="d-list">
+                <div class="empty">Press "Load All" to fetch predictions from the live API</div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const API = 'https://flood-risk-api-y2pz.onrender.com';
+
+        const DISTRICTS = {
+            'Jaffna': { el: 5, rv: 300, r7: 50, rm: 120, nw: .45, nv: .20, dr: .40, ew: .65, pd: 500, ia: 5000 },
+            'Kilinochchi': { el: 10, rv: 400, r7: 55, rm: 130, nw: .40, nv: .25, dr: .42, ew: .62, pd: 100, ia: 4500 },
+            'Mannar': { el: 5, rv: 200, r7: 45, rm: 110, nw: .50, nv: .20, dr: .35, ew: .68, pd: 80, ia: 5500 },
+            'Vavuniya': { el: 100, rv: 600, r7: 60, rm: 150, nw: .30, nv: .35, dr: .50, ew: .55, pd: 90, ia: 3500 },
+            'Mullaitivu': { el: 8, rv: 250, r7: 65, rm: 160, nw: .50, nv: .30, dr: .38, ew: .68, pd: 70, ia: 5000 },
+            'Anuradhapura': { el: 90, rv: 800, r7: 65, rm: 160, nw: .28, nv: .40, dr: .55, ew: .52, pd: 140, ia: 3000 },
+            'Polonnaruwa': { el: 60, rv: 500, r7: 70, rm: 170, nw: .38, nv: .42, dr: .50, ew: .58, pd: 160, ia: 3500 },
+            'Puttalam': { el: 5, rv: 350, r7: 60, rm: 145, nw: .48, nv: .25, dr: .38, ew: .65, pd: 220, ia: 5000 },
+            'Kurunegala': { el: 90, rv: 700, r7: 80, rm: 190, nw: .30, nv: .45, dr: .52, ew: .58, pd: 450, ia: 3500 },
+            'Trincomalee': { el: 10, rv: 300, r7: 75, rm: 190, nw: .55, nv: .30, dr: .38, ew: .70, pd: 200, ia: 6000 },
+            'Batticaloa': { el: 5, rv: 200, r7: 90, rm: 220, nw: .60, nv: .30, dr: .32, ew: .72, pd: 300, ia: 7000 },
+            'Ampara': { el: 30, rv: 400, r7: 85, rm: 210, nw: .45, nv: .40, dr: .42, ew: .65, pd: 200, ia: 5500 },
+            'Matale': { el: 380, rv: 600, r7: 70, rm: 180, nw: .25, nv: .55, dr: .55, ew: .50, pd: 300, ia: 2500 },
+            'Kandy': { el: 465, rv: 800, r7: 80, rm: 200, nw: .30, nv: .60, dr: .60, ew: .55, pd: 700, ia: 3000 },
+            'Nuwara Eliya': { el: 1900, rv: 1200, r7: 100, rm: 250, nw: .20, nv: .70, dr: .70, ew: .45, pd: 250, ia: 1500 },
+            'Gampaha': { el: 15, rv: 400, r7: 120, rm: 290, nw: .50, nv: .30, dr: .40, ew: .70, pd: 1800, ia: 6000 },
+            'Colombo': { el: 8, rv: 200, r7: 140, rm: 320, nw: .60, nv: .20, dr: .30, ew: .75, pd: 3400, ia: 8000 },
+            'Kalutara': { el: 12, rv: 350, r7: 150, rm: 380, nw: .60, nv: .40, dr: .35, ew: .80, pd: 800, ia: 7000 },
+            'Kegalle': { el: 120, rv: 500, r7: 130, rm: 340, nw: .42, nv: .52, dr: .42, ew: .72, pd: 500, ia: 5500 },
+            'Ratnapura': { el: 90, rv: 400, r7: 160, rm: 420, nw: .50, nv: .55, dr: .38, ew: .82, pd: 350, ia: 7500 },
+            'Galle': { el: 10, rv: 300, r7: 130, rm: 350, nw: .55, nv: .40, dr: .38, ew: .78, pd: 600, ia: 6500 },
+            'Matara': { el: 8, rv: 250, r7: 125, rm: 340, nw: .58, nv: .38, dr: .36, ew: .76, pd: 550, ia: 6200 },
+            'Hambantota': { el: 20, rv: 500, r7: 60, rm: 150, nw: .30, nv: .25, dr: .45, ew: .60, pd: 150, ia: 4000 },
+            'Badulla': { el: 680, rv: 900, r7: 90, rm: 230, nw: .20, nv: .65, dr: .65, ew: .48, pd: 250, ia: 2000 },
+            'Monaragala': { el: 150, rv: 700, r7: 75, rm: 185, nw: .28, nv: .50, dr: .55, ew: .55, pd: 100, ia: 3000 },
+        };
+
+        const scores = {};
+        let selected = null;
+
+        function risk(s) {
+            if (s < .3) return { label: 'Low Risk', color: '#22c55e', bg: '#0f2a1a' };
+            if (s < .5) return { label: 'Moderate Risk', color: '#eab308', bg: '#2a1f0a' };
+            if (s < .7) return { label: 'High Risk', color: '#f97316', bg: '#2a150a' };
+            return { label: 'Very High Risk', color: '#ef4444', bg: '#2a0a0a' };
+        }
+
+        async function predict(district) {
+            const d = DISTRICTS[district];
+            const payload = {
+                district, latitude: 7.87, longitude: 80.77,
+                elevation_m: d.el, distance_to_river_m: d.rv,
+                landcover: 'Agriculture', soil_type: 'Clay',
+                water_supply: 'Municipal', electricity: 'Grid',
+                road_quality: 'Fair', population_density_per_km2: d.pd,
+                built_up_percent: 40, urban_rural: 'Rural',
+                rainfall_7d_mm: d.r7, monthly_rainfall_mm: d.rm,
+                drainage_index: d.dr, ndvi: d.nv, ndwi: d.nw,
+                water_presence_flag: 'Likely', historical_flood_count: 2,
+                infrastructure_score: .5, nearest_hospital_km: 5,
+                nearest_evac_km: 3, inundation_area_sqm: d.ia,
+                seasonal_index: .6, terrain_roughness_index: .4,
+                socioeconomic_status_index: .5, extreme_weather_index: d.ew
+            };
+            try {
+                const r = await fetch(`${API}/predict`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const j = await r.json();
+                return j.flood_risk_score;
+            } catch (e) { return null; }
+        }
+
+        function paintDistrict(name, score) {
+            const el = document.getElementById('d-' + name.replace(/ /g, ''));
+            if (!el) return;
+            const r = risk(score);
+            el.style.fill = r.color + '55';
+            el.style.stroke = r.color + '99';
+        }
+
+        async function loadAll() {
+            const btn = document.getElementById('load-btn');
+            btn.disabled = true;
+            const names = Object.keys(DISTRICTS);
+            for (let i = 0; i < names.length; i++) {
+                const n = names[i];
+                btn.textContent = `⏳ ${i + 1}/${names.length} — ${n}`;
+                const s = await predict(n);
+                if (s !== null) { scores[n] = s; paintDistrict(n, s); }
+                await new Promise(r => setTimeout(r, 80));
+            }
+            updateStats();
+            renderList();
+            btn.disabled = false;
+            btn.textContent = '🔄 Refresh Predictions';
+        }
+
+        function updateStats() {
+            const vals = Object.values(scores);
+            if (!vals.length) return;
+            const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+            document.getElementById('s-avg').textContent = avg.toFixed(3);
+            document.getElementById('s-high').textContent = vals.filter(s => s >= .5 && s < .7).length;
+            document.getElementById('s-vhigh').textContent = vals.filter(s => s >= .7).length;
+            document.getElementById('s-low').textContent = vals.filter(s => s < .3).length;
+        }
+
+        function renderList() {
+            const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+            document.getElementById('d-list').innerHTML = sorted.map(([n, s]) => {
+                const r = risk(s);
+                return `<div class="d-item ${selected === n ? 'active' : ''}" onclick="selectDistrict('${n}')">
+            <div class="d-item-l"><div class="d-dot" style="background:${r.color}"></div><span class="d-n">${n}</span></div>
+            <span class="d-s">${s.toFixed(3)}</span>
+        </div>`;
+            }).join('');
+        }
+
+        function selectDistrict(name) {
+            selected = name;
+            const s = scores[name];
+            if (s === undefined) return;
+            const r = risk(s);
+
+            document.querySelectorAll('.district').forEach(p => p.classList.remove('active'));
+            const el = document.getElementById('d-' + name.replace(/ /g, ''));
+            if (el) el.classList.add('active');
+
+            document.getElementById('info-card').innerHTML = `
+        <div style="color:var(--muted);font-size:.65rem;text-transform:uppercase;letter-spacing:.08em">District</div>
+        <div class="d-name">${name}</div>
+        <div class="d-score" style="color:${r.color}">${(s * 100).toFixed(1)}%</div>
+        <div class="d-pill" style="background:${r.bg};color:${r.color}">● ${r.label}</div>
+        <div class="bar-wrap"><div class="bar-fill" style="width:${s * 100}%;background:${r.color}"></div></div>
+    `;
+            renderList();
+        }
+
+        // Map interactions
+        document.querySelectorAll('.district').forEach(el => {
+            const name = el.getAttribute('data-name');
+
+            el.addEventListener('click', async () => {
+                if (scores[name] !== undefined) {
+                    selectDistrict(name);
+                } else {
+                    document.getElementById('info-card').innerHTML = `<div class="empty">⏳ Loading ${name}...</div>`;
+                    const s = await predict(name);
+                    if (s !== null) { scores[name] = s; paintDistrict(name, s); selectDistrict(name); updateStats(); renderList(); }
+                }
+            });
+
+            el.addEventListener('mousemove', e => {
+                const tip = document.getElementById('tooltip');
+                const s = scores[name];
+                tip.style.display = 'block';
+                tip.style.left = (e.clientX + 12) + 'px';
+                tip.style.top = (e.clientY - 28) + 'px';
+                tip.innerHTML = s !== undefined
+                    ? `<b>${name}</b> — ${(s * 100).toFixed(1)}% ${risk(s).label}`
+                    : `<b>${name}</b> — click to load`;
+            });
+
+            el.addEventListener('mouseleave', () => {
+                document.getElementById('tooltip').style.display = 'none';
+            });
+        });
+    </script>
+</body>
+
+</html>
