@@ -257,6 +257,142 @@
                 opacity: 0.5;
             }
         }
+
+        /* Prediction History Section Styles */
+        .history-card {
+            background: #111827;
+            border-radius: 12px;
+            padding: 25px;
+            border: 1px solid #1f2937;
+            margin-top: 30px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #1f2937;
+            padding-bottom: 15px;
+        }
+
+        .history-header h2 {
+            font-size: 1.2rem;
+            color: #60a5fa;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .refresh-btn {
+            background: #1e3a8a;
+            color: #93c5fd;
+            border: 1px solid #3b82f6;
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            width: auto;
+            margin-top: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .refresh-btn:hover {
+            background: #2563eb;
+            color: white;
+            transform: translateY(-1px);
+        }
+
+        .history-table-container {
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid #1f2937;
+            background: #0d1117;
+        }
+
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.85rem;
+        }
+
+        .history-table th,
+        .history-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #1f2937;
+            vertical-align: middle;
+        }
+
+        .history-table th {
+            background-color: #1f2937;
+            color: #9ca3af;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+        }
+
+        .history-table tbody tr {
+            transition: background-color 0.15s ease;
+        }
+
+        .history-table tbody tr:hover {
+            background-color: #161b22;
+        }
+
+        .no-history {
+            text-align: center;
+            color: #6b7280;
+            padding: 40px !important;
+            font-style: italic;
+        }
+
+        .risk-badge-sm {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .load-btn {
+            background: #1f2937;
+            border: 1px solid #374151;
+            color: #60a5fa;
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            width: auto;
+            margin-top: 0;
+            display: inline-flex;
+            align-items: center;
+            transition: all 0.2s ease;
+        }
+
+        .load-btn:hover {
+            background: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+            transform: translateY(-1px);
+        }
+
+        .history-loading {
+            text-align: center;
+            padding: 30px !important;
+            color: #6b7280;
+            font-size: 0.9rem;
+            font-style: italic;
+        }
     </style>
 </head>
 
@@ -442,6 +578,32 @@
                 </div>
             </div>
         </div>
+
+        <!-- Recent Prediction Logs Section -->
+        <div class="card history-card">
+            <div class="history-header">
+                <h2>📊 Recent Prediction Logs (Today)</h2>
+                <button id="refresh-history-btn" class="refresh-btn" onclick="fetchHistory()">🔄 Refresh History</button>
+            </div>
+            <div class="history-table-container">
+                <table class="history-table">
+                    <thead>
+                        <tr>
+                            <th>District</th>
+                            <th>Rainfall (7d / Monthly)</th>
+                            <th>Elevation / River Dist</th>
+                            <th>Risk Score</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-list">
+                        <tr>
+                            <td colspan="5" class="history-loading">⏳ Loading prediction logs...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -499,6 +661,7 @@
                 if (!res.ok) throw new Error(data.detail || 'Prediction failed');
 
                 showResult(data, payload);
+                fetchHistory(); // Refresh prediction logs history
             } catch (err) {
                 errorMsg.style.display = 'block';
                 errorMsg.textContent = '❌ Error: ' + err.message;
@@ -527,12 +690,125 @@
             badge.className = 'risk-badge ' + cls;
 
             document.getElementById('res-district').textContent = payload.district;
-            document.getElementById('res-time').textContent = new Date(data.timestamp).toLocaleTimeString();
+            const timestamp = data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
+            document.getElementById('res-time').textContent = timestamp;
             document.getElementById('res-elevation').textContent = payload.elevation_m + ' m';
             document.getElementById('res-river').textContent = payload.distance_to_river_m + ' m';
 
             document.getElementById('result').style.display = 'block';
         }
+
+        async function fetchHistory() {
+            const historyList = document.getElementById('history-list');
+            try {
+                const res = await fetch(`${API}/predictions/history`);
+                if (!res.ok) throw new Error('Failed to fetch history');
+                const data = await res.json();
+                
+                if (!data.predictions || data.predictions.length === 0) {
+                    historyList.innerHTML = `<tr><td colspan="5" class="no-history">No predictions logged today yet.</td></tr>`;
+                    return;
+                }
+                
+                // Show latest predictions first
+                const sortedPredictions = [...data.predictions].reverse();
+                
+                historyList.innerHTML = sortedPredictions.map((pred) => {
+                    const score = pred.prediction;
+                    let cls = 'low';
+                    let label = 'Low';
+                    
+                    if (score >= 0.8) {
+                        cls = 'very-high';
+                        label = 'Very High';
+                    } else if (score >= 0.6) {
+                        cls = 'high';
+                        label = 'High';
+                    } else if (score >= 0.3) {
+                        cls = 'moderate';
+                        label = 'Moderate';
+                    }
+                    
+                    const inputStr = encodeURIComponent(JSON.stringify(pred.input));
+                    
+                    return `
+                        <tr>
+                            <td><strong>${pred.input.district || 'Unknown'}</strong> <span style="font-size:0.75rem; color:#6b7280;">(${pred.input.urban_rural || ''})</span></td>
+                            <td>${pred.input.rainfall_7d_mm || 0} / ${pred.input.monthly_rainfall_mm || 0} mm</td>
+                            <td>${pred.input.elevation_m || 0}m / ${pred.input.distance_to_river_m || 0}m</td>
+                            <td>
+                                <span class="risk-badge-sm ${cls}">
+                                    ${label} (${(score * 100).toFixed(1)}%)
+                                </span>
+                            </td>
+                            <td>
+                                <button class="load-btn" onclick="loadPrediction('${inputStr}', ${score}, '${pred.timestamp}')">📋 Load</button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (err) {
+                console.error(err);
+                historyList.innerHTML = `<tr><td colspan="5" class="no-history" style="color: #f87171;">❌ Failed to load prediction history.</td></tr>`;
+            }
+        }
+
+        function loadPrediction(inputStr, score, timestamp) {
+            try {
+                const input = JSON.parse(decodeURIComponent(inputStr));
+                
+                // Populate all fields
+                if (input.district) document.getElementById('district').value = input.district;
+                if (input.urban_rural) document.getElementById('urban_rural').value = input.urban_rural;
+                if (input.elevation_m !== undefined) document.getElementById('elevation_m').value = input.elevation_m;
+                if (input.distance_to_river_m !== undefined) document.getElementById('distance_to_river_m').value = input.distance_to_river_m;
+                if (input.rainfall_7d_mm !== undefined) document.getElementById('rainfall_7d_mm').value = input.rainfall_7d_mm;
+                if (input.monthly_rainfall_mm !== undefined) document.getElementById('monthly_rainfall_mm').value = input.monthly_rainfall_mm;
+                if (input.ndwi !== undefined) document.getElementById('ndwi').value = input.ndwi;
+                if (input.ndvi !== undefined) document.getElementById('ndvi').value = input.ndvi;
+                if (input.drainage_index !== undefined) document.getElementById('drainage_index').value = input.drainage_index;
+                if (input.extreme_weather_index !== undefined) document.getElementById('extreme_weather_index').value = input.extreme_weather_index;
+                if (input.landcover) document.getElementById('landcover').value = input.landcover;
+                if (input.soil_type) document.getElementById('soil_type').value = input.soil_type;
+                if (input.population_density_per_km2 !== undefined) document.getElementById('population_density_per_km2').value = input.population_density_per_km2;
+                if (input.inundation_area_sqm !== undefined) document.getElementById('inundation_area_sqm').value = input.inundation_area_sqm;
+                
+                // Show result block with this score directly!
+                const mockData = {
+                    flood_risk_score: score,
+                    risk_level: score < 0.3 ? 'Low Risk' : score < 0.5 ? 'Moderate Risk' : score < 0.7 ? 'High Risk' : 'Very High Risk',
+                    risk_color: score < 0.3 ? 'green' : score < 0.5 ? 'yellow' : score < 0.7 ? 'orange' : 'red',
+                    timestamp: timestamp
+                };
+                
+                document.getElementById('placeholder').style.display = 'none';
+                document.getElementById('loading').style.display = 'none';
+                showResult(mockData, input);
+                
+                // Scroll to top of the page smoothly
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                
+                // Show temporary success feedback in error-msg space (reused styling)
+                const errorMsg = document.getElementById('error-msg');
+                errorMsg.style.display = 'block';
+                errorMsg.style.background = '#1e3a8a';
+                errorMsg.style.color = '#93c5fd';
+                errorMsg.style.border = '1px solid #3b82f6';
+                errorMsg.textContent = '📋 Loaded historical prediction data into form.';
+                setTimeout(() => {
+                    if (errorMsg.textContent.includes('Loaded')) {
+                        errorMsg.style.display = 'none';
+                    }
+                }, 3000);
+            } catch (e) {
+                console.error('Error loading prediction:', e);
+            }
+        }
+
+        // Fetch history on DOM load
+        window.addEventListener('DOMContentLoaded', () => {
+            fetchHistory();
+        });
     </script>
 </body>
 
