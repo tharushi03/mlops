@@ -24,8 +24,16 @@
             padding: 20px 40px;
             display: flex;
             align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
             gap: 15px;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
         }
 
         header h1 {
@@ -258,6 +266,52 @@
             }
         }
 
+        /* Map button styling integrated in header */
+        .map-btn {
+            background: #1e3a5f;
+            color: #93c5fd;
+            padding: 8px 18px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 600;
+            border: 1px solid #2d5a8e;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .map-btn:hover {
+            background: #2d4a7a;
+            color: #bbd7fb;
+            border-color: #60a5fa;
+            transform: translateY(-1px);
+        }
+
+        /* subtle responsive adjustment */
+        @media (max-width: 750px) {
+            header {
+                flex-direction: column;
+                align-items: stretch;
+                text-align: center;
+            }
+
+            .header-left {
+                justify-content: center;
+            }
+
+            .map-btn {
+                align-self: center;
+                width: fit-content;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+        }
+
         /* Prediction History Section Styles */
         .history-card {
             background: #111827;
@@ -399,10 +453,16 @@
 <body>
 
     <header>
-        <div>
-            <h1>🌊 Flood Risk Prediction System</h1>
-            <p>ML-powered flood risk assessment for Sri Lanka — ML Opsidian Genesis</p>
+        <div class="header-left">
+            <div>
+                <h1>🌊 Flood Risk Prediction System</h1>
+                <p>ML-powered flood risk assessment for Sri Lanka — ML Opsidian Genesis</p>
+            </div>
         </div>
+        <!-- Integrated Risk Map Button in header for prominent access -->
+        <a href="map.html" class="map-btn">
+            🗺️ View Risk Map
+        </a>
     </header>
 
     <div class="container">
@@ -583,7 +643,8 @@
         <div class="card history-card">
             <div class="history-header">
                 <h2>📊 Recent Prediction Logs (Today)</h2>
-                <button id="refresh-history-btn" class="refresh-btn" onclick="fetchHistory()">🔄 Refresh History</button>
+                <button id="refresh-history-btn" class="refresh-btn" onclick="fetchHistory()">🔄 Refresh
+                    History</button>
             </div>
             <div class="history-table-container">
                 <table class="history-table">
@@ -666,6 +727,7 @@
                 errorMsg.style.display = 'block';
                 errorMsg.textContent = '❌ Error: ' + err.message;
                 document.getElementById('placeholder').style.display = 'block';
+                document.getElementById('loading').style.display = 'none';
             } finally {
                 document.getElementById('loading').style.display = 'none';
                 btn.disabled = false;
@@ -675,10 +737,21 @@
 
         function showResult(data, payload) {
             const score = data.flood_risk_score;
-            const colorMap = { green: '#4ade80', yellow: '#fbbf24', orange: '#fb923c', red: '#f87171' };
-            const classMap = { green: 'low', yellow: 'moderate', orange: 'high', red: 'very-high' };
-            const color = colorMap[data.risk_color] || '#fb923c';
-            const cls = classMap[data.risk_color] || 'high';
+            // fallback handling if API returns numeric score but risk_color is dynamic
+            let color = '#fb923c';
+            let cls = 'high';
+            if (data.risk_color === 'green' || (score <= 0.3 && !data.risk_color)) { color = '#4ade80'; cls = 'low'; }
+            else if (data.risk_color === 'yellow' || (score > 0.3 && score <= 0.6 && !data.risk_color)) { color = '#fbbf24'; cls = 'moderate'; }
+            else if (data.risk_color === 'orange' || (score > 0.6 && score <= 0.8 && !data.risk_color)) { color = '#fb923c'; cls = 'high'; }
+            else if (data.risk_color === 'red' || score > 0.8) { color = '#f87171'; cls = 'very-high'; }
+
+            // use data mappings if available
+            if (data.risk_color) {
+                const colorMap = { green: '#4ade80', yellow: '#fbbf24', orange: '#fb923c', red: '#f87171' };
+                const classMap = { green: 'low', yellow: 'moderate', orange: 'high', red: 'very-high' };
+                color = colorMap[data.risk_color] || color;
+                cls = classMap[data.risk_color] || cls;
+            }
 
             document.getElementById('score-text').textContent = (score * 100).toFixed(1) + '%';
             document.getElementById('score-text').style.color = color;
@@ -686,7 +759,7 @@
             document.getElementById('meter-fill').style.background = color;
 
             const badge = document.getElementById('risk-badge');
-            badge.textContent = data.risk_level;
+            badge.textContent = data.risk_level || (cls === 'low' ? 'Low Risk' : cls === 'moderate' ? 'Moderate Risk' : cls === 'high' ? 'High Risk' : 'Very High Risk');
             badge.className = 'risk-badge ' + cls;
 
             document.getElementById('res-district').textContent = payload.district;
@@ -704,20 +777,20 @@
                 const res = await fetch(`${API}/predictions/history`);
                 if (!res.ok) throw new Error('Failed to fetch history');
                 const data = await res.json();
-                
+
                 if (!data.predictions || data.predictions.length === 0) {
                     historyList.innerHTML = `<tr><td colspan="5" class="no-history">No predictions logged today yet.</td></tr>`;
                     return;
                 }
-                
+
                 // Show latest predictions first
                 const sortedPredictions = [...data.predictions].reverse();
-                
+
                 historyList.innerHTML = sortedPredictions.map((pred) => {
                     const score = pred.prediction;
                     let cls = 'low';
                     let label = 'Low';
-                    
+
                     if (score >= 0.8) {
                         cls = 'very-high';
                         label = 'Very High';
@@ -728,9 +801,9 @@
                         cls = 'moderate';
                         label = 'Moderate';
                     }
-                    
+
                     const inputStr = encodeURIComponent(JSON.stringify(pred.input));
-                    
+
                     return `
                         <tr>
                             <td><strong>${pred.input.district || 'Unknown'}</strong> <span style="font-size:0.75rem; color:#6b7280;">(${pred.input.urban_rural || ''})</span></td>
@@ -756,7 +829,7 @@
         function loadPrediction(inputStr, score, timestamp) {
             try {
                 const input = JSON.parse(decodeURIComponent(inputStr));
-                
+
                 // Populate all fields
                 if (input.district) document.getElementById('district').value = input.district;
                 if (input.urban_rural) document.getElementById('urban_rural').value = input.urban_rural;
@@ -772,7 +845,7 @@
                 if (input.soil_type) document.getElementById('soil_type').value = input.soil_type;
                 if (input.population_density_per_km2 !== undefined) document.getElementById('population_density_per_km2').value = input.population_density_per_km2;
                 if (input.inundation_area_sqm !== undefined) document.getElementById('inundation_area_sqm').value = input.inundation_area_sqm;
-                
+
                 // Show result block with this score directly!
                 const mockData = {
                     flood_risk_score: score,
@@ -780,14 +853,14 @@
                     risk_color: score < 0.3 ? 'green' : score < 0.5 ? 'yellow' : score < 0.7 ? 'orange' : 'red',
                     timestamp: timestamp
                 };
-                
+
                 document.getElementById('placeholder').style.display = 'none';
                 document.getElementById('loading').style.display = 'none';
                 showResult(mockData, input);
-                
+
                 // Scroll to top of the page smoothly
                 window.scrollTo({ top: 0, behavior: 'smooth' });
-                
+
                 // Show temporary success feedback in error-msg space (reused styling)
                 const errorMsg = document.getElementById('error-msg');
                 errorMsg.style.display = 'block';
@@ -805,8 +878,15 @@
             }
         }
 
-        // Fetch history on DOM load
+        // optional: small demo to keep consistent layout when page loads
         window.addEventListener('DOMContentLoaded', () => {
+            // prefill any dynamic default if needed, but just to ensure map button is interactive
+            const mapLink = document.querySelector('.map-btn');
+            if (mapLink && !mapLink.getAttribute('href')) {
+                mapLink.setAttribute('href', 'map.html');
+            }
+
+            // Fetch initial history
             fetchHistory();
         });
     </script>
